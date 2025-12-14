@@ -59,6 +59,7 @@ def plot_missing_matrix(df: pd.DataFrame, out_path: PathLike) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if df.empty:
+        # Рисуем пустой график
         fig, ax = plt.subplots()
         ax.text(0.5, 0.5, "Empty dataset", ha="center", va="center")
         ax.axis("off")
@@ -139,6 +140,7 @@ def plot_categorical_bars(
     out_dir = _ensure_dir(out_dir)
     paths: List[Path] = []
 
+    # Определяем категориальные колонки
     cat_cols = [
         col for col in df.columns
         if is_object_dtype(df[col]) or is_categorical_dtype(df[col])

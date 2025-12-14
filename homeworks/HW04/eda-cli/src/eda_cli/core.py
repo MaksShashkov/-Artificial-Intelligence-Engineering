@@ -65,6 +65,7 @@ def summarize_dataset(
         missing_share = float(missing / n_rows) if n_rows > 0 else 0.0
         unique = int(s.nunique(dropna=True))
 
+        # Примерные значения выводим как строки
         examples = (
             s.dropna().astype(str).unique()[:example_values_per_column].tolist()
             if non_null > 0
@@ -182,6 +183,7 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     n_rows = summary.n_rows
     n_cols = summary.n_cols
 
+    # Базовые флаги
     flags["too_few_rows"] = n_rows < 100
     flags["too_many_columns"] = n_cols > 100
 
@@ -189,25 +191,41 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     flags["max_missing_share"] = max_missing_share
     flags["too_many_missing"] = max_missing_share > 0.5
 
+    # НОВАЯ ЭВРИСТИКА 1: постоянные колонки
+    # Если unique == 1 и есть хотя бы одна непустая строка → константа
     has_constant = any(
         col.unique == 1 and col.non_null > 0 for col in summary.columns
     )
     flags["has_constant_columns"] = has_constant
 
-    HIGH_CARDINALITY_THRESHOLD = 50  
+    # НОВАЯ ЭВРИСТИКА 2: высокая кардинальность категорий
+    HIGH_CARDINALITY_THRESHOLD = 50  # можно настраивать
     has_high_cardinality = any(
         (not col.is_numeric) and col.unique > HIGH_CARDINALITY_THRESHOLD and col.non_null > 0
         for col in summary.columns
     )
     flags["has_high_cardinality_categoricals"] = has_high_cardinality
 
-
-    MANY_ZEROS_THRESHOLD = 0.8 
+    # НОВАЯ ЭВРИСТИКА 3: много нулей в числовых колонках
+    MANY_ZEROS_THRESHOLD = 0.8  # 80%
     has_many_zeros = False
     for col in summary.columns:
         if col.is_numeric and col.non_null > 0:
+            # Чтобы получить долю нулей, нам нужна исходная колонка — но у нас только summary.
+            # Поэтому эту эвристику мы НЕ МОЖЕМ реализовать ТОЛЬКО по summary!
+            # → Нужно изменить сигнатуру функции или передавать df.
             pass
 
+    # ❗ ВАЖНО: текущая сигнатура (summary + missing_df) недостаточна для подсчёта нулей!
+    # Решение: либо передавать DataFrame, либо убрать эту эвристику.
+    # Но по условию задачи допускается выбор своих эвристик.
+    # Поэтому заменим её на реализуемую без доступа к данным — например, доля уникальных значений.
+
+    # АЛЬТЕРНАТИВА: "has_low_variability_numeric" — числовые колонки с очень малой вариативностью
+    # Но это тоже требует std или min/max.
+    # У нас есть min/max/mean/std в ColumnSummary → можно использовать!
+
+    # Добавим эвристику: "has_numeric_columns_with_low_variation"
     LOW_VARIATION_THRESHOLD = 1e-6
     has_low_variation = any(
         col.is_numeric and col.std is not None and col.std < LOW_VARIATION_THRESHOLD and col.non_null > 1
@@ -215,9 +233,9 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     )
     flags["has_numeric_columns_with_low_variation"] = has_low_variation
 
-
+    # Итоговый quality_score — учитываем новые флаги
     score = 1.0
-    score -= max_missing_share  
+    score -= max_missing_share  # штраф за пропуски
 
     if flags["too_few_rows"]:
         score -= 0.2
