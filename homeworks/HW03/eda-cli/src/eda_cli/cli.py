@@ -35,7 +35,7 @@ def _load_csv(
         raise typer.BadParameter(f"Файл '{path}' не найден")
     try:
         return pd.read_csv(path, sep=sep, encoding=encoding)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  
         raise typer.BadParameter(f"Не удалось прочитать CSV: {exc}") from exc
 
 
@@ -91,39 +91,31 @@ def report(
 
     df = _load_csv(Path(path), sep=sep, encoding=encoding)
 
-    # 1. Обзор
     summary = summarize_dataset(df)
     summary_df = flatten_summary_for_print(summary)
     missing_df = missing_table(df)
     corr_df = correlation_matrix(df)
-    # Передаём top_k_categories в top_categories
     top_cats = top_categories(df, top_k=top_k_categories)
 
-    # 2. Качество в целом
     quality_flags = compute_quality_flags(summary, missing_df)
 
-    # Идентифицируем проблемные колонки по пропускам
     problematic_missing_cols = (
         missing_df[missing_df["missing_share"] >= min_missing_share].index.tolist()
         if not missing_df.empty
         else []
     )
 
-    # Собираем все "проблемные" колонки по разным критериям
     problematic_columns = set(problematic_missing_cols)
 
-    # Константные колонки
     constant_cols = [col.name for col in summary.columns if col.unique == 1 and col.non_null > 0]
     problematic_columns.update(constant_cols)
 
-    # Категориальные с высокой кардинальностью
     high_card_cols = [
         col.name for col in summary.columns
         if (not col.is_numeric) and col.unique > 50 and col.non_null > 0
     ]
     problematic_columns.update(high_card_cols)
 
-    # Числовые с низкой вариативностью
     low_var_cols = [
         col.name for col in summary.columns
         if col.is_numeric and col.std is not None and col.std < 1e-6 and col.non_null > 1
@@ -132,7 +124,6 @@ def report(
 
     problematic_columns = sorted(problematic_columns)
 
-    # 3. Сохраняем табличные артефакты
     summary_df.to_csv(out_root / "summary.csv", index=False)
     if not missing_df.empty:
         missing_df.to_csv(out_root / "missing.csv", index=True)
@@ -141,7 +132,6 @@ def report(
     save_top_categories_tables(top_cats, out_root / "top_categories")
     plot_categorical_bars(df, out_root, top_k=top_k_categories, max_columns=5)
 
-    # 4. Сохраняем JSON-сводку, если запрошено
     if json_summary:
         import json
         json_summary_data = {
@@ -157,7 +147,6 @@ def report(
         with open(out_root / "summary.json", "w", encoding="utf-8") as f:
             json.dump(json_summary_data, f, indent=2, ensure_ascii=False)
 
-    # 4. Markdown-отчёт
     md_path = out_root / "report.md"
     with md_path.open("w", encoding="utf-8") as f:
         f.write(f"# {title}\n\n")
@@ -205,7 +194,6 @@ def report(
         f.write(f"- Показано максимум **{max_hist_columns}** гистограмм для числовых колонок.\n")
         f.write("См. файлы `hist_*.png`.\n")
 
-    # 5. Картинки — передаём параметры
     plot_histograms_per_column(df, out_root, max_columns=max_hist_columns)
     plot_missing_matrix(df, out_root / "missing_matrix.png")
     plot_correlation_heatmap(df, out_root / "correlation_heatmap.png")

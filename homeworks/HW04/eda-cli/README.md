@@ -22,8 +22,6 @@ uv sync
 - установит зависимости из `pyproject.toml`;
 - установит сам проект `eda-cli` в окружение.
 
-## Запуск CLI
-
 ### Краткий обзор
 
 ```bash
@@ -43,14 +41,15 @@ uv run eda-cli report data/example.csv --out-dir reports
 
 В результате в каталоге `reports/` появятся:
 
-- `report.md` – основной отчёт в Markdown;
-- `summary.csv` – таблица по колонкам;
-- `missing.csv` – пропуски по колонкам;
-- `correlation.csv` – корреляционная матрица (если есть числовые признаки);
-- `top_categories/*.csv` – top-k категорий по строковым признакам;
-- `hist_*.png` – гистограммы числовых колонок;
-- `missing_matrix.png` – визуализация пропусков;
-- `correlation_heatmap.png` – тепловая карта корреляций.
+report.md — основной отчёт
+summary.csv — таблица по колонкам
+missing.csv — статистика пропусков
+correlation.csv — корреляции
+top_categories/*.csv — top-k категорий
+bar_*.png — новые bar-графики для категориальных признаков (HW03)
+hist_*.png — гистограммы
+missing_matrix.png, correlation_heatmap.png — визуализации
+summary.json — новый JSON-файл с качеством и проблемными колонками (если --json-summary)
 
 ## Тесты
 
